@@ -6,6 +6,9 @@ set :repository,  "ssh://deploy@projects.mtconnect.org:2233/home/deploy/projects
 # via the :deploy_to variable:
 set :deploy_to, "/home/deploy/projects"
 
+ssh_options[:port] = 2233
+ssh_options[:user] = 'deploy'
+
 # If you aren't using Subversion to manage your source code, specify
 # your SCM below:
 set :scm, :git
@@ -13,8 +16,6 @@ set :scm, :git
 role :app, "projects.mtconnect.org"
 role :web, "projects.mtconnect.org"
 role :db,  "projects.mtconnect.org", :primary => true
-
-after 'deploy:setup'
 
 namespace :deploy do
     desc "Override the default restart and execute mongel:restart task. See thin:restart"
