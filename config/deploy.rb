@@ -7,7 +7,7 @@ set :repository,  "ssh://deploy@projects.mtconnect.org:2233/home/deploy/projects
 set :deploy_to, "/home/deploy/projects"
 
 ssh_options[:port] = 2233
-ssh_options[:user] = 'deploy'
+ssh_options[:username] = 'deploy'
 
 # If you aren't using Subversion to manage your source code, specify
 # your SCM below:
