@@ -37,5 +37,6 @@ end
 after 'deploy:update_code', 'link_database_config'
 
 task :link_database_config, :roles => :app do
-    run "ln -nfs #{shared_path}/secure/database.yml #{current_path}/config/database.yml"
+    run "ln -nfs #{shared_path}/secure/database.yml #{release_path}/config/database.yml && " +
+        "ln -nfs #{shared_path}/secure/email.yml #{release_path}/config/email.yml"
 end
