@@ -33,3 +33,9 @@ namespace :deploy do
       thin.stop
     end
 end
+
+after 'deploy:update_code', 'link_database_config'
+
+task :link_database_config, :roles => :app do
+    run "ln -nfs #{shared_path}/secure/database.yml #{current_path}/config/database.yml"
+end
