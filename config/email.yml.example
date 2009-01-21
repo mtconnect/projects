@@ -1,14 +1,11 @@
 # Outgoing email settings
 
 production:
-  delivery_method: :smtp
-  smtp_settings:
+  delivery_method: smtp
+  sendmail_settings:
     address: localhost
     port: 25
     domain: projects.mtconnect.org
-    authentication: :login
-    user_name: redmine@example.net
-    password: redmine
   
 development:
   delivery_method: :smtp
