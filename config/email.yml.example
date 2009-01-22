@@ -6,6 +6,7 @@ production:
     address: localhost
     port: 25
     domain: projects.mtconnect.org
+    authentication: none
   
 development:
   delivery_method: :smtp
