@@ -1,0 +1,9 @@
+tmp/*
+log/*
+db/schema.rb
+db/development.sqlite3
+db/test.sqlite3
+coverage/*
+config/database.yml
+config/email.yml
+files/*
