@@ -90,7 +90,7 @@ class Mailer < ActionMailer::Base
 
   def news_added(news)
     redmine_headers 'Project' => news.project.identifier
-    recipients news.project.recipients
+    recipients news.project.recipients(true)
     subject "[#{news.project.name}] #{l(:label_news)}: #{news.title}"
     body :news => news,
          :news_url => url_for(:controller => 'news', :action => 'show', :id => news)
