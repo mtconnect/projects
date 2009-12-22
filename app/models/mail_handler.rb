@@ -40,7 +40,7 @@ class MailHandler < ActionMailer::Base
   # Processes incoming emails
   def receive(email)
     @email = email
-    @user = User.active.find(:first, :conditions => ["LOWER(mail) = ?", email.from.first.to_s.strip.downcase])
+    @user = User.active.find(:first, :conditions => ["LOWER(mail) = ?", email.from.to_a.first.to_s.strip.downcase])
     unless @user
       # Unknown user => the email is ignored
       # TODO: ability to create the user's account
@@ -90,6 +90,13 @@ class MailHandler < ActionMailer::Base
     end
     issue.subject = email.subject.chomp.toutf8
     issue.description = plain_text_body
+    # custom fields
+    issue.custom_field_values = issue.available_custom_fields.inject({}) do |h, c|
+      if value = get_keyword(c.name, :override => true)
+        h[c.id] = value
+      end
+      h
+    end
     issue.save!
     add_attachments(issue)
     logger.info "MailHandler: issue ##{issue.id} created by #{user}" if logger && logger.info
@@ -155,11 +162,18 @@ class MailHandler < ActionMailer::Base
     end
   end
   
-  def get_keyword(attr)
-    if @@handler_options[:allow_override].include?(attr.to_s) && plain_text_body =~ /^#{attr}:[ \t]*(.+)$/i
-      $1.strip
-    elsif !@@handler_options[:issue][attr].blank?
-      @@handler_options[:issue][attr]
+  def get_keyword(attr, options={})
+    @keywords ||= {}
+    if @keywords.has_key?(attr)
+      @keywords[attr]
+    else
+      @keywords[attr] = begin
+        if (options[:override] || @@handler_options[:allow_override].include?(attr.to_s)) && plain_text_body.gsub!(/^#{attr}[ \t]*:[ \t]*(.+)\s*$/i, '')
+          $1.strip
+        elsif !@@handler_options[:issue][attr].blank?
+          @@handler_options[:issue][attr]
+        end
+      end
     end
   end
   
@@ -181,5 +195,6 @@ class MailHandler < ActionMailer::Base
       @plain_text_body = plain_text_part.body.to_s
     end
     @plain_text_body.strip!
+    @plain_text_body
   end
 end

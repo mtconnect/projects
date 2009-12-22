@@ -35,6 +35,10 @@ class AccountController < ApplicationController
     events = Redmine::Activity::Fetcher.new(User.current, :author => @user).events(nil, nil, :limit => 10)
     @events_by_day = events.group_by(&:event_date)
     
+    if @user != User.current && !User.current.admin? && @memberships.empty? && events.empty?
+      render_404 and return
+    end
+    
   rescue ActiveRecord::RecordNotFound
     render_404
   end
@@ -63,6 +67,7 @@ class AccountController < ApplicationController
           token = Token.create(:user => user, :action => 'autologin')
           cookies[:autologin] = { :value => token.value, :expires => 1.year.from_now }
         end
+        call_hook(:controller_account_success_authentication_after, {:user => user })
         redirect_back_or_default :controller => 'my', :action => 'page'
       end
     end
@@ -183,12 +188,12 @@ class AccountController < ApplicationController
   
 private
   def logged_user=(user)
+    reset_session
     if user && user.is_a?(User)
       User.current = user
       session[:user_id] = user.id
     else
       User.current = User.anonymous
-      session[:user_id] = nil
     end
   end
 end

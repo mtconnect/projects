@@ -19,10 +19,17 @@ require 'uri'
 require 'cgi'
 
 class ApplicationController < ActionController::Base
+  class MissingSessionSecret < Exception ; end
   layout 'base'
   
   before_filter :user_setup, :check_if_login_required, :set_localization
   filter_parameter_logging :password
+
+  if session.first[:secret].blank?
+    raise MissingSessionSecret, "Missing session secret. Please run 'rake config/initializers/session_store.rb' to generate one"
+  else
+    protect_from_forgery :secret => session.first[:secret]
+  end
   
   include Redmine::MenuManager::MenuController
   helper Redmine::MenuManager::MenuHelper
@@ -82,7 +89,13 @@ class ApplicationController < ActionController::Base
   
   def require_login
     if !User.current.logged?
-      redirect_to :controller => "account", :action => "login", :back_url => url_for(params)
+      # Extract only the basic url parameters on non-GET requests
+      if request.get?
+        url = url_for(params)
+      else
+        url = url_for(:controller => params[:controller], :action => params[:action], :id => params[:id], :project_id => params[:project_id])
+      end
+      redirect_to :controller => "account", :action => "login", :back_url => url
       return false
     end
     true
@@ -175,6 +188,7 @@ class ApplicationController < ActionController::Base
   # TODO: move to model
   def attach_files(obj, attachments)
     attached = []
+    unsaved = []
     if attachments && attachments.is_a?(Hash)
       attachments.each_value do |attachment|
         file = attachment['file']
@@ -183,7 +197,10 @@ class ApplicationController < ActionController::Base
                               :file => file,
                               :description => attachment['description'].to_s.strip,
                               :author => User.current)
-        attached << a unless a.new_record?
+        a.new_record? ? (unsaved << a) : (attached << a)
+      end
+      if unsaved.any?
+        flash[:warning] = l(:warning_attachments_not_saved, unsaved.size)
       end
     end
     attached

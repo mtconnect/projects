@@ -23,7 +23,7 @@ class MessageObserver < ActiveRecord::Observer
     # send notification to the board watchers
     recipients += message.board.watcher_recipients
     # send notification to project members who want to be notified
-    recipients += message.board.project.recipients(true)
+    recipients += message.board.project.recipients
     recipients = recipients.compact.uniq
     Mailer.deliver_message_posted(message, recipients) if !recipients.empty? && Setting.notified_events.include?('message_posted')
   end

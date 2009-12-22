@@ -19,9 +19,6 @@ class WelcomeController < ApplicationController
 
   def index
     @news = News.latest User.current
-    @projects = Project.find :all,
-                            :conditions => Project.visible_by(User.current) + ' AND parent_id IS NULL',
-                            :order => :name
-    
+    @projects = Project.latest User.current
   end
 end

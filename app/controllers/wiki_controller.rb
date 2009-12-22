@@ -21,7 +21,7 @@ class WikiController < ApplicationController
   before_filter :find_wiki, :authorize
   before_filter :find_existing_page, :only => [:rename, :protect, :history, :diff, :annotate, :add_attachment, :destroy]
   
-  verify :method => :post, :only => [:destroy, :destroy_attachment, :protect], :redirect_to => { :action => :index }
+  verify :method => :post, :only => [:destroy, :protect], :redirect_to => { :action => :index }
 
   helper :attachments
   include AttachmentsHelper   
@@ -82,6 +82,7 @@ class WikiController < ApplicationController
       @content.author = User.current
       # if page is new @page.save will also save content, but not if page isn't a new record
       if (@page.new_record? ? @page.save : @content.save)
+        call_hook(:controller_wiki_edit_after_save, { :params => params, :page => @page})
         redirect_to :action => 'index', :id => @project, :page => @page.title
       end
     end
@@ -178,13 +179,6 @@ class WikiController < ApplicationController
   def add_attachment
     return render_403 unless editable?
     attach_files(@page, params[:attachments])
-    redirect_to :action => 'index', :page => @page.title
-  end
-
-  def destroy_attachment
-    @page = @wiki.find_page(params[:page])
-    return render_403 unless editable?
-    @page.attachments.find(params[:attachment_id]).destroy
     redirect_to :action => 'index', :page => @page.title
   end
 

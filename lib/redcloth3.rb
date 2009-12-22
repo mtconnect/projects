@@ -791,7 +791,10 @@ class RedCloth3 < String
             \s?
             (?:\(([^)]+?)\)(?="))?     # $title
             ":
-            ([\w\/]\S+?)               # $url
+            (                          # $url
+            (\/|[a-zA-Z]+:\/\/|www\.|mailto:)  # $proto
+            [\w\/]\S+?
+            )               
             (\/)?                      # $slash
             ([^\w\=\/;\(\)]*?)         # $post
             (?=<|\s|$)
@@ -799,7 +802,7 @@ class RedCloth3 < String
 #"
     def inline_textile_link( text ) 
         text.gsub!( LINK_RE ) do |m|
-            pre,atts,text,title,url,slash,post = $~[1..7]
+            pre,atts,text,title,url,proto,slash,post = $~[1..8]
 
             url, url_title = check_refs( url )
             title ||= url_title
@@ -904,7 +907,7 @@ class RedCloth3 < String
     end
 
     IMAGE_RE = /
-            (<p>|.|^)            # start of line?
+            (>|\s|^)           # start of line?
             \!                   # opening
             (\<|\=|\>)?          # optional alignment atts
             (#{C})               # optional style,class atts
@@ -1008,7 +1011,7 @@ class RedCloth3 < String
     end
     
     OFFTAGS = /(code|pre|kbd|notextile)/
-    OFFTAG_MATCH = /(?:(<\/#{ OFFTAGS }>)|(<#{ OFFTAGS }[^>]*>))(.*?)(?=<\/?#{ OFFTAGS }|\Z)/mi
+    OFFTAG_MATCH = /(?:(<\/#{ OFFTAGS }>)|(<#{ OFFTAGS }[^>]*>))(.*?)(?=<\/?#{ OFFTAGS }\W|\Z)/mi
     OFFTAG_OPEN = /<#{ OFFTAGS }/
     OFFTAG_CLOSE = /<\/?#{ OFFTAGS }/
     HASTAG_MATCH = /(<\/?\w[^\n]*?>)/m

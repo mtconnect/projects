@@ -44,6 +44,8 @@ class Project < ActiveRecord::Base
                           :association_foreign_key => 'custom_field_id'
                           
   acts_as_tree :order => "name", :counter_cache => true
+  acts_as_attachable :view_permission => :view_files,
+                     :delete_permission => :manage_files
 
   acts_as_customizable
   acts_as_searchable :columns => ['name', 'description'], :project_key => 'id', :permission => nil
@@ -58,7 +60,7 @@ class Project < ActiveRecord::Base
   validates_associated :repository, :wiki
   validates_length_of :name, :maximum => 30
   validates_length_of :homepage, :maximum => 255
-  validates_length_of :identifier, :in => 3..20
+  validates_length_of :identifier, :in => 1..20
   validates_format_of :identifier, :with => /^[a-z0-9\-]*$/
   
   before_destroy :delete_all_members
@@ -199,8 +201,8 @@ class Project < ActiveRecord::Base
   end
   
   # Returns the mail adresses of users that should be always notified on project events
-  def recipients(all = false)
-    members.select {|m| all || m.mail_notification? || m.user.mail_notification?}.collect {|m| m.user.mail}
+  def recipients
+    members.select {|m| m.mail_notification? || m.user.mail_notification?}.collect {|m| m.user.mail}
   end
   
   # Returns an array of all custom fields enabled for project issues

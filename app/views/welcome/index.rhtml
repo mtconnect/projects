@@ -2,22 +2,6 @@
 
 <div class="splitcontentleft">
   <%= textilizable Setting.welcome_text %>
-    <% if @projects.any? %>
-	<div class="box">
-	<h3 class="icon22 icon22-projects"><%=l(:label_project_plural)%></h3>
-		<ul>
-		<% for project in @projects %>
-			<li>
-			<%= link_to h(project.name), :controller => 'projects', :action => 'show', :id => project %>
-			<%= textilizable project.short_description, :project => project %>
-			</li>
-		<% end %>
-		</ul>
-	</div>
-	<% end %>
-</div>
-
-<div class="splitcontentright">
   <% if @news.any? %>
   <div class="box">
 	<h3><%=l(:label_news_latest)%></h3>
@@ -25,6 +9,24 @@
 		<%= link_to l(:label_news_view_all), :controller => 'news' %>
   </div>
   <% end %>
+  <%= call_hook(:view_welcome_index_left, :projects => @projects) %>
+</div>
+
+<div class="splitcontentright">
+    <% if @projects.any? %>
+	<div class="box">
+	<h3 class="icon22 icon22-projects"><%=l(:label_project_latest)%></h3>
+		<ul>
+		<% for project in @projects %>
+			<li>
+			<%= link_to h(project.name), :controller => 'projects', :action => 'show', :id => project %> (<%= format_time(project.created_on) %>)
+			<%= textilizable project.short_description, :project => project %>
+			</li>
+		<% end %>
+		</ul>
+	</div>
+	<% end %>
+    <%= call_hook(:view_welcome_index_right, :projects => @projects) %>
 </div>	
 
 <% content_for :header_tags do %>

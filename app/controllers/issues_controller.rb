@@ -18,20 +18,18 @@
 class IssuesController < ApplicationController
   menu_item :new_issue, :only => :new
   
-  before_filter :find_issue, :only => [:show, :edit, :reply, :destroy_attachment]
+  before_filter :find_issue, :only => [:show, :edit, :reply]
   before_filter :find_issues, :only => [:bulk_edit, :move, :destroy]
   before_filter :find_project, :only => [:new, :update_form, :preview]
   before_filter :authorize, :except => [:index, :changes, :gantt, :calendar, :preview, :update_form, :context_menu]
   before_filter :find_optional_project, :only => [:index, :changes, :gantt, :calendar]
-  accept_key_auth :index, :changes
+  accept_key_auth :index, :show, :changes
 
   helper :journals
   helper :projects
   include ProjectsHelper   
   helper :custom_fields
   include CustomFieldsHelper
-  helper :ifpdf
-  include IfpdfHelper
   helper :issue_relations
   include IssueRelationsHelper
   helper :watchers
@@ -43,7 +41,12 @@ class IssuesController < ApplicationController
   include SortHelper
   include IssuesHelper
   helper :timelog
+  include Redmine::Export::PDF
 
+  verify :method => :post,
+         :only => :destroy,
+         :render => { :nothing => true, :status => :method_not_allowed }
+           
   def index
     retrieve_query
     sort_init 'id', 'desc'
@@ -68,7 +71,7 @@ class IssuesController < ApplicationController
         format.html { render :template => 'issues/index.rhtml', :layout => !request.xhr? }
         format.atom { render_feed(@issues, :title => "#{@project || Setting.app_title}: #{l(:label_issue_plural)}") }
         format.csv  { send_data(issues_to_csv(@issues, @project).read, :type => 'text/csv; header=present', :filename => 'export.csv') }
-        format.pdf  { send_data(render(:template => 'issues/index.rfpdf', :layout => false), :type => 'application/pdf', :filename => 'export.pdf') }
+        format.pdf  { send_data(issues_to_pdf(@issues, @project), :type => 'application/pdf', :filename => 'export.pdf') }
       end
     else
       # Send html if the query is not valid
@@ -106,7 +109,7 @@ class IssuesController < ApplicationController
     respond_to do |format|
       format.html { render :template => 'issues/show.rhtml' }
       format.atom { render :action => 'changes', :layout => false, :content_type => 'application/atom+xml' }
-      format.pdf  { send_data(render(:template => 'issues/show.rfpdf', :layout => false), :type => 'application/pdf', :filename => "#{@project.identifier}-#{@issue.id}.pdf") }
+      format.pdf  { send_data(issue_to_pdf(@issue), :type => 'application/pdf', :filename => "#{@project.identifier}-#{@issue.id}.pdf") }
     end
   end
 
@@ -123,7 +126,10 @@ class IssuesController < ApplicationController
       render :nothing => true, :layout => true
       return
     end
-    @issue.attributes = params[:issue]
+    if params[:issue].is_a?(Hash)
+      @issue.attributes = params[:issue]
+      @issue.watcher_user_ids = params[:issue]['watcher_user_ids'] if User.current.allowed_to?(:add_issue_watchers, @project)
+    end
     @issue.author = User.current
     
     default_status = IssueStatus.default
@@ -145,7 +151,9 @@ class IssuesController < ApplicationController
         attach_files(@issue, params[:attachments])
         flash[:notice] = l(:notice_successful_create)
         Mailer.deliver_issue_add(@issue) if Setting.notified_events.include?('issue_added')
-        redirect_to :controller => 'issues', :action => 'show', :id => @issue
+        call_hook(:controller_issues_new_after_save, { :params => params, :issue => @issue})
+        redirect_to(params[:continue] ? { :action => 'new', :tracker_id => @issue.tracker } :
+                                        { :action => 'show', :id => @issue })
         return
       end		
     end	
@@ -183,7 +191,7 @@ class IssuesController < ApplicationController
 
       if (@time_entry.hours.nil? || @time_entry.valid?) && @issue.save
         # Log spend time
-        if current_role.allowed_to?(:log_time)
+        if User.current.allowed_to?(:log_time, @project)
           @time_entry.save
         end
         if !journal.new_record?
@@ -191,6 +199,7 @@ class IssuesController < ApplicationController
           flash[:notice] = l(:notice_successful_update)
           Mailer.deliver_issue_edit(journal) if Setting.notified_events.include?('issue_updated')
         end
+        call_hook(:controller_issues_edit_after_save, { :params => params, :issue => @issue, :time_entry => @time_entry, :journal => journal})
         redirect_to(params[:back_to] || {:action => 'show', :id => @issue})
       end
     end
@@ -315,17 +324,6 @@ class IssuesController < ApplicationController
     @issues.each(&:destroy)
     redirect_to :action => 'index', :project_id => @project
   end
-
-  def destroy_attachment
-    a = @issue.attachments.find(params[:attachment_id])
-    a.destroy
-    journal = @issue.init_journal(User.current)
-    journal.details << JournalDetail.new(:property => 'attachment',
-                                         :prop_key => a.id,
-                                         :old_value => a.filename)
-    journal.save
-    redirect_to :action => 'show', :id => @issue
-  end
   
   def gantt
     @gantt = Redmine::Helpers::Gantt.new(params)
@@ -351,10 +349,12 @@ class IssuesController < ApplicationController
       @gantt.events = events
     end
     
+    basename = (@project ? "#{@project.identifier}-" : '') + 'gantt'
+    
     respond_to do |format|
       format.html { render :template => "issues/gantt.rhtml", :layout => !request.xhr? }
-      format.png  { send_data(@gantt.to_image, :disposition => 'inline', :type => 'image/png', :filename => "#{@project.identifier}-gantt.png") } if @gantt.respond_to?('to_image')
-      format.pdf  { send_data(render(:template => "issues/gantt.rfpdf", :layout => false), :type => 'application/pdf', :filename => "#{@project.nil? ? '' : "#{@project.identifier}-" }gantt.pdf") }
+      format.png  { send_data(@gantt.to_image, :disposition => 'inline', :type => 'image/png', :filename => "#{basename}.png") } if @gantt.respond_to?('to_image')
+      format.pdf  { send_data(gantt_to_pdf(@gantt, @project), :type => 'application/pdf', :filename => "#{basename}.pdf") }
     end
   end
   
