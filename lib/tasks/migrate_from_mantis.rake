@@ -40,7 +40,7 @@ task :migrate_from_mantis => :environment do
                         90 => closed_status    # closed
                         }
                         
-      priorities = Enumeration.get_values('IPRI')
+      priorities = Enumeration.priorities
       DEFAULT_PRIORITY = priorities[2]
       PRIORITY_MAPPING = {10 => priorities[1], # none
                           20 => priorities[1], # low
@@ -284,7 +284,7 @@ task :migrate_from_mantis => :environment do
     	# Project members
     	project.members.each do |member|
           m = Member.new :user => User.find_by_id(users_map[member.user_id]),
-    	                 :role => ROLE_MAPPING[member.access_level] || DEFAULT_ROLE
+    	                   :roles => [ROLE_MAPPING[member.access_level] || DEFAULT_ROLE]
     	  m.project = p
     	  m.save
     	end	
@@ -314,7 +314,7 @@ task :migrate_from_mantis => :environment do
       Issue.destroy_all
       issues_map = {}
       keep_bug_ids = (Issue.count == 0)
-      MantisBug.find(:all, :order => 'id ASC').each do |bug|
+      MantisBug.find_each(:batch_size => 200) do |bug|
         next unless projects_map[bug.project_id] && users_map[bug.reporter_id]
     	i = Issue.new :project_id => projects_map[bug.project_id], 
                       :subject => encode(bug.summary),
@@ -503,6 +503,9 @@ task :migrate_from_mantis => :environment do
   
   # Make sure bugs can refer bugs in other projects
   Setting.cross_project_issue_relations = 1 if Setting.respond_to? 'cross_project_issue_relations'
+  
+  # Turn off email notifications
+  Setting.notified_events = []
   
   MantisMigrate.establish_connection db_params
   MantisMigrate.migrate

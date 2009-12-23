@@ -37,7 +37,7 @@ namespace :redmine do
                           'closed' => closed_status
                           }
 
-        priorities = Enumeration.get_values('IPRI')
+        priorities = Enumeration.priorities
         DEFAULT_PRIORITY = priorities[0]
         PRIORITY_MAPPING = {'lowest' => priorities[0],
                             'low' => priorities[0],
@@ -263,7 +263,7 @@ namespace :redmine do
           elsif TracPermission.find_by_username_and_action(username, 'developer')
             role = ROLE_MAPPING['developer']
           end
-          Member.create(:user => u, :project => @target_project, :role => role)
+          Member.create(:user => u, :project => @target_project, :roles => [role])
           u.reload
         end
         u
@@ -458,7 +458,7 @@ namespace :redmine do
 
         # Tickets
         print "Migrating tickets"
-          TracTicket.find(:all, :order => 'id ASC').each do |ticket|
+          TracTicket.find_each(:batch_size => 200) do |ticket|
           print '.'
           STDOUT.flush
           i = Issue.new :project => @target_project,
@@ -754,7 +754,10 @@ namespace :redmine do
     prompt('Trac database encoding', :default => 'UTF-8') {|encoding| TracMigrate.encoding encoding}
     prompt('Target project identifier') {|identifier| TracMigrate.target_project_identifier identifier}
     puts
-
+    
+    # Turn off email notifications
+    Setting.notified_events = []
+    
     TracMigrate.migrate
   end
 end
