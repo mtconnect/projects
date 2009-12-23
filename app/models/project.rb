@@ -369,10 +369,10 @@ class Project < ActiveRecord::Base
   end
   
   # Returns the mail adresses of users that should be always notified on project events
-  def recipients
-    members.select {|m| m.mail_notification? || m.user.mail_notification?}.collect {|m| m.user.mail}
+  def recipients(all = false)
+    members.select {|m| all || m.mail_notification? || m.user.mail_notification?}.collect {|m| m.user.mail}
   end
-  
+    
   # Returns the users that should be notified on project events
   def notified_users
     members.select {|m| m.mail_notification? || m.user.mail_notification?}.collect {|m| m.user}
